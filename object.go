@@ -239,6 +239,10 @@ type Object struct {
 	// as a form of provenance, or to support future editing by clients.
 	// In general, clients do the conversion from source to content, not the other way around.
 	Source Source `jsonld:"source,omitempty"`
+	// due to Mastodon's non-standard attachment object definition, ( add object of type Document that has properties
+	// width and height, we copy these from the Link definition
+	Height uint `jsonld:"height,omitempty"`
+	Width  uint `jsonld:"width,omitempty"`
 }
 
 // ObjectNew initializes a new Object
