@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	xsd "git.sr.ht/~mariusor/go-xsd-duration"
+	"git.sr.ht/~mariusor/go-xsd-duration"
 	"github.com/go-ap/jsonld"
 )
 
@@ -285,6 +285,14 @@ func JSONWriteObjectValue(b *[]byte, o Object) (notEmpty bool) {
 	}
 	if v, err := o.Source.MarshalJSON(); err == nil && len(v) > 0 {
 		notEmpty = JSONWriteProp(b, "source", v) || notEmpty
+	}
+	// non-standard fields on height due to mastodon attachments of type Document
+	// having these fields
+	if o.Height > 0 {
+		notEmpty = JSONWriteIntProp(b, "height", int64(o.Height))
+	}
+	if o.Width > 0 {
+		notEmpty = JSONWriteIntProp(b, "width", int64(o.Width))
 	}
 	return notEmpty
 }
