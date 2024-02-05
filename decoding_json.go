@@ -399,7 +399,7 @@ func JSONGetIRI(val *fastjson.Value, prop string) IRI {
 
 // UnmarshalJSON tries to detect the type of the object in the json data and then outputs a matching
 // ActivityStreams object, if possible
-func UnmarshalJSON(data []byte) (Item, error) {
+func UnmarshalJSON(data []byte) (ObjectOrLink, error) {
 	p := fastjson.Parser{}
 	val, err := p.ParseBytes(data)
 	if err != nil {
