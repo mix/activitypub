@@ -30,6 +30,7 @@ const (
 	AudioType        ActivityVocabularyType = "Audio"
 	DocumentType     ActivityVocabularyType = "Document"
 	EventType        ActivityVocabularyType = "Event"
+	HashtagType      ActivityVocabularyType = "Hashtag"
 	ImageType        ActivityVocabularyType = "Image"
 	NoteType         ActivityVocabularyType = "Note"
 	PageType         ActivityVocabularyType = "Page"
