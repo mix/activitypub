@@ -195,7 +195,8 @@ func JSONLoadItem(val *fastjson.Value) (Item, error) {
 	case "":
 		// NOTE(marius): this handles Tags which usually don't have types
 		fallthrough
-	case ObjectType, ArticleType, AudioType, DocumentType, EventType, ImageType, NoteType, PageType, VideoType:
+	case ObjectType, ArticleType, AudioType, DocumentType, EventType, ImageType,
+		NoteType, PageType, VideoType, HashtagType:
 		err = OnObject(i, func(ob *Object) error {
 			return JSONLoadObject(val, ob)
 		})
