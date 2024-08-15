@@ -242,8 +242,9 @@ type Object struct {
 	Source Source `jsonld:"source,omitempty"`
 	// due to Mastodon's non-standard attachment object definition, ( add object of type Document that has properties
 	// width and height, we copy these from the Link definition
-	Height uint `jsonld:"height,omitempty"`
-	Width  uint `jsonld:"width,omitempty"`
+	Height    uint `jsonld:"height,omitempty"`
+	Width     uint `jsonld:"width,omitempty"`
+	Sensitive bool `jsonld:"sensitive,omitempty"`
 }
 
 // ObjectNew initializes a new Object
