@@ -503,6 +503,7 @@ func JSONLoadObject(val *fastjson.Value, o *Object) error {
 	o.Source = GetAPSource(val)
 	o.Width = uint(JSONGetInt(val, "width"))
 	o.Height = uint(JSONGetInt(val, "height"))
+	o.Sensitive = JSONGetBoolean(val, "sensitive")
 	return nil
 }
 
