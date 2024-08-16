@@ -289,14 +289,12 @@ func JSONWriteObjectValue(b *[]byte, o Object) (notEmpty bool) {
 	// non-standard fields on height due to mastodon attachments of type Document
 	// having these fields
 	if o.Height > 0 {
-		notEmpty = JSONWriteIntProp(b, "height", int64(o.Height))
+		notEmpty = JSONWriteIntProp(b, "height", int64(o.Height)) || notEmpty
 	}
 	if o.Width > 0 {
-		notEmpty = JSONWriteIntProp(b, "width", int64(o.Width))
+		notEmpty = JSONWriteIntProp(b, "width", int64(o.Width)) || notEmpty
 	}
-	if o.Sensitive {
-		notEmpty = JSONWriteBoolProp(b, "sensitive", o.Sensitive)
-	}
+	notEmpty = JSONWriteBoolProp(b, "sensitive", o.Sensitive) || notEmpty
 	return notEmpty
 }
 
