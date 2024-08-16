@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"reflect"
 	"time"
 	"unsafe"
 
@@ -232,13 +231,16 @@ func (r *Relationship) GobDecode(data []byte) error {
 
 // Recipients performs recipient de-duplication on the Relationship object's To, Bto, CC and BCC properties
 func (r *Relationship) Recipients() ItemCollection {
-	return ItemCollectionDeduplication(&r.To, &r.Bto, &r.CC, &r.BCC, &r.Audience)
+	aud := r.Audience
+	return ItemCollectionDeduplication(&r.To, &r.CC, &r.Bto, &r.BCC, &aud)
 }
 
 // Clean removes Bto and BCC properties
 func (r *Relationship) Clean() {
-	r.BCC = nil
-	r.Bto = nil
+	_ = OnObject(r, func(o *Object) error {
+		o.Clean()
+		return nil
+	})
 }
 
 func (r Relationship) Format(s fmt.State, verb rune) {
@@ -260,13 +262,8 @@ func ToRelationship(it Item) (*Relationship, error) {
 	case Object:
 		return (*Relationship)(unsafe.Pointer(&i)), nil
 	default:
-		// NOTE(marius): this is an ugly way of dealing with the interface conversion error: types from different scopes
-		typ := reflect.TypeOf(new(Relationship))
-		if i, ok := reflect.ValueOf(it).Convert(typ).Interface().(*Relationship); ok {
-			return i, nil
-		}
+		return reflectItemToType[Relationship](it)
 	}
-	return nil, ErrorInvalidType[Relationship](it)
 }
 
 type withRelationshipFn func(*Relationship) error

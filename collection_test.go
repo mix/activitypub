@@ -238,3 +238,42 @@ func TestToCollection(t *testing.T) {
 		})
 	}
 }
+
+func TestCollection_Equals(t *testing.T) {
+	tests := []struct {
+		name   string
+		fields Collection
+		item   Item
+		want   bool
+	}{
+		{
+			name: "collection with two items",
+			fields: Collection{
+				ID:    "https://example.com/1",
+				Type:  CollectionType,
+				First: IRI("https://example.com/1?first"),
+				Items: ItemCollection{
+					Object{ID: "https://example.com/1/1", Type: NoteType},
+					Object{ID: "https://example.com/1/3", Type: ImageType},
+				},
+			},
+			item: &Collection{
+				ID:    "https://example.com/1",
+				Type:  CollectionType,
+				First: IRI("https://example.com/1?first"),
+				Items: ItemCollection{
+					Object{ID: "https://example.com/1/1", Type: NoteType},
+					Object{ID: "https://example.com/1/3", Type: ImageType},
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.fields.Equals(tt.item); got != tt.want {
+				t.Errorf("Equals() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

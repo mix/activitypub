@@ -5,7 +5,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
-	"reflect"
 	"time"
 	"unsafe"
 
@@ -145,13 +144,16 @@ type (
 
 // Recipients performs recipient de-duplication on the IntransitiveActivity's To, Bto, CC and BCC properties
 func (i *IntransitiveActivity) Recipients() ItemCollection {
-	return ItemCollectionDeduplication(&ItemCollection{i.Actor}, &i.To, &i.Bto, &i.CC, &i.BCC, &i.Audience)
+	aud := i.Audience
+	return ItemCollectionDeduplication(&i.To, &i.CC, &i.Bto, &i.BCC, &ItemCollection{i.Actor}, &aud)
 }
 
 // Clean removes Bto and BCC properties
 func (i *IntransitiveActivity) Clean() {
-	i.BCC = nil
-	i.Bto = nil
+	_ = OnObject(i, func(o *Object) error {
+		o.Clean()
+		return nil
+	})
 }
 
 // GetType returns the ActivityVocabulary type of the current Intransitive Activity
@@ -272,15 +274,8 @@ func ToIntransitiveActivity(it Item) (*IntransitiveActivity, error) {
 	case Activity:
 		return (*IntransitiveActivity)(unsafe.Pointer(&i)), nil
 	default:
-		// NOTE(marius): this is an ugly way of dealing with the interface conversion error: types from different scopes
-		typ := reflect.TypeOf(new(IntransitiveActivity))
-		if reflect.TypeOf(it).ConvertibleTo(typ) {
-			if i, ok := reflect.ValueOf(it).Convert(typ).Interface().(*IntransitiveActivity); ok {
-				return i, nil
-			}
-		}
+		return reflectItemToType[IntransitiveActivity](it)
 	}
-	return nil, ErrorInvalidType[IntransitiveActivity](it)
 }
 
 // ArriveNew initializes an Arrive activity

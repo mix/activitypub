@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/valyala/fastjson"
@@ -335,17 +334,8 @@ func ToCollectionPage(it Item) (*CollectionPage, error) {
 	case CollectionPage:
 		return &i, nil
 	default:
-		// NOTE(marius): this is an ugly way of dealing with the interface conversion error: types from different scopes
-		typ := reflect.TypeOf(new(CollectionPage))
-		val := reflect.ValueOf(it)
-		if val.IsValid() && typ.Elem().Name() == val.Type().Elem().Name() {
-			conv := val.Convert(typ)
-			if i, ok := conv.Interface().(*CollectionPage); ok {
-				return i, nil
-			}
-		}
+		return reflectItemToType[CollectionPage](it)
 	}
-	return nil, ErrorInvalidType[CollectionPage](it)
 }
 
 // ItemsMatch
@@ -424,10 +414,13 @@ func (c CollectionPage) Format(s fmt.State, verb rune) {
 }
 
 func (c *CollectionPage) Recipients() ItemCollection {
-	return ItemCollectionDeduplication(&c.To, &c.Bto, &c.CC, &c.BCC, &c.Audience)
+	aud := c.Audience
+	return ItemCollectionDeduplication(&c.To, &c.CC, &c.Bto, &c.BCC, &aud)
 }
 
 func (c *CollectionPage) Clean() {
-	c.BCC = nil
-	c.Bto = nil
+	_ = OnObject(c, func(o *Object) error {
+		o.Clean()
+		return nil
+	})
 }

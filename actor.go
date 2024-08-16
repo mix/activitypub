@@ -5,7 +5,6 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/valyala/fastjson"
@@ -341,12 +340,15 @@ func ServiceNew(id ID) *Service {
 }
 
 func (a *Actor) Recipients() ItemCollection {
-	return ItemCollectionDeduplication(&a.To, &a.Bto, &a.CC, &a.BCC, &a.Audience)
+	aud := a.Audience
+	return ItemCollectionDeduplication(&a.To, &a.CC, &a.Bto, &a.BCC, &aud)
 }
 
 func (a *Actor) Clean() {
-	a.BCC = nil
-	a.Bto = nil
+	_ = OnObject(a, func(o *Object) error {
+		o.Clean()
+		return nil
+	})
 }
 
 func (a *Actor) UnmarshalJSON(data []byte) error {
@@ -503,15 +505,8 @@ func ToActor(it Item) (*Actor, error) {
 	case Actor:
 		return &i, nil
 	default:
-		// NOTE(marius): this is an ugly way of dealing with the interface conversion error: types from different scopes
-		typ := reflect.TypeOf(new(Actor))
-		if reflect.TypeOf(it).ConvertibleTo(typ) {
-			if i, ok := reflect.ValueOf(it).Convert(typ).Interface().(*Actor); ok {
-				return i, nil
-			}
-		}
+		return reflectItemToType[Actor](it)
 	}
-	return nil, ErrorInvalidType[Actor](it)
 }
 
 // Equals verifies if our receiver Object is equals with the "with" Object

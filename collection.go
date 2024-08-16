@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"reflect"
 	"time"
 	"unsafe"
 
@@ -351,17 +350,8 @@ func ToCollection(it Item) (*Collection, error) {
 	case CollectionPage:
 		return (*Collection)(unsafe.Pointer(&i)), nil
 	default:
-		// NOTE(marius): this is an ugly way of dealing with the interface conversion error: types from different scopes
-		typ := reflect.TypeOf(new(Collection))
-		val := reflect.ValueOf(it)
-		if val.IsValid() && typ.Elem().Name() == val.Type().Elem().Name() {
-			conv := val.Convert(typ)
-			if i, ok := conv.Interface().(*Collection); ok {
-				return i, nil
-			}
-		}
+		return reflectItemToType[Collection](it)
 	}
-	return nil, ErrorInvalidType[Collection](it)
 }
 
 // ItemsMatch
@@ -383,8 +373,8 @@ func (c Collection) Equals(with Item) bool {
 		return false
 	}
 	result := true
-	OnCollection(with, func(w *Collection) error {
-		OnObject(w, func(wo *Object) error {
+	_ = OnCollection(with, func(w *Collection) error {
+		_ = OnObject(w, func(wo *Object) error {
 			if !wo.Equals(c) {
 				result = false
 				return nil
@@ -416,7 +406,7 @@ func (c Collection) Equals(with Item) bool {
 			}
 		}
 		if w.Items != nil {
-			if !c.Items.Equals(w.Items) {
+			if !ItemsEqual(c.Items, w.Items) {
 				result = false
 				return nil
 			}
@@ -427,10 +417,13 @@ func (c Collection) Equals(with Item) bool {
 }
 
 func (c *Collection) Recipients() ItemCollection {
-	return ItemCollectionDeduplication(&c.To, &c.Bto, &c.CC, &c.BCC, &c.Audience)
+	aud := c.Audience
+	return ItemCollectionDeduplication(&c.To, &c.CC, &c.Bto, &c.BCC, &aud)
 }
 
 func (c *Collection) Clean() {
-	c.BCC = nil
-	c.Bto = nil
+	_ = OnObject(c, func(o *Object) error {
+		o.Clean()
+		return nil
+	})
 }

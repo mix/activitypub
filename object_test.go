@@ -1,6 +1,7 @@
 package activitypub
 
 import (
+	"bytes"
 	"reflect"
 	"testing"
 	"time"
@@ -472,27 +473,87 @@ func TestObject_GetType(t *testing.T) {
 }
 
 func TestToObject(t *testing.T) {
-	var it Item
-	ob := ObjectNew(ArticleType)
-	it = ob
-
-	o, err := ToObject(it)
-	if err != nil {
-		t.Error(err)
+	tests := []struct {
+		name    string
+		arg     Item
+		want    Item
+		wantErr bool
+	}{
+		{
+			name: "Actor with ID, type, w/o extra properties",
+			arg:  &Actor{ID: "https://example.com", Type: PersonType},
+			want: &Object{ID: "https://example.com", Type: PersonType},
+		},
+		{
+			name: "Actor with ID, type, w/ extra properties",
+			arg: &Actor{ID: "https://example.com", Type: PersonType, Endpoints: &Endpoints{
+				OauthAuthorizationEndpoint: IRI("https://example.com/oauth"),
+			}},
+			want: &Object{ID: "https://example.com", Type: PersonType},
+		},
+		{
+			name: "Place w/o extra properties",
+			arg:  &Place{ID: "https://example.com", Type: PlaceType},
+			want: &Object{ID: "https://example.com", Type: PlaceType},
+		},
+		{
+			name: "Place w/ extra properties",
+			arg:  &Place{ID: "https://example.com", Type: PlaceType, Accuracy: 0.22, Altitude: 66.6},
+			want: &Object{ID: "https://example.com", Type: PlaceType},
+		},
+		{
+			name: "Profile w/o extra properties",
+			arg:  &Profile{ID: "https://example.com", Type: ProfileType},
+			want: &Object{ID: "https://example.com", Type: ProfileType},
+		},
+		{
+			name: "Profile w/ extra properties",
+			arg:  &Profile{ID: "https://example.com", Type: ProfileType, Describes: IRI("https://alt.example.com/")},
+			want: &Object{ID: "https://example.com", Type: ProfileType},
+		},
+		{
+			name: "Tombstone w/o extra properties",
+			arg:  &Tombstone{ID: "https://example.com", Type: TombstoneType},
+			want: &Object{ID: "https://example.com", Type: TombstoneType},
+		},
+		{
+			name: "Tombstone w/ extra properties",
+			arg:  &Tombstone{ID: "https://example.com", Type: TombstoneType, FormerType: GroupType, Deleted: time.Now()},
+			want: &Object{ID: "https://example.com", Type: TombstoneType},
+		},
+		{
+			name: "Create w/o extra properties",
+			arg:  &Create{ID: "https://example.com", Type: CreateType},
+			want: &Object{ID: "https://example.com", Type: CreateType},
+		},
+		{
+			name: "Create w/ extra properties",
+			arg:  &Create{ID: "https://example.com", Type: CreateType, Actor: IRI("https://example.com/1")},
+			want: &Object{ID: "https://example.com", Type: CreateType},
+		},
+		{
+			name: "Question w/o extra properties",
+			arg:  &Question{ID: "https://example.com", Type: QuestionType},
+			want: &Object{ID: "https://example.com", Type: QuestionType},
+		},
+		{
+			name: "Question w/ extra properties",
+			arg:  &Question{ID: "https://example.com", Type: QuestionType, AnyOf: ItemCollection{IRI("https://example.com")}},
+			want: &Object{ID: "https://example.com", Type: QuestionType},
+		},
 	}
-	if o != ob {
-		t.Errorf("Invalid activity returned by ToObject #%v", ob)
-	}
-
-	act := ActivityNew("test", CreateType, nil)
-	it = act
-
-	a, err := ToObject(it)
-	if err != nil {
-		t.Errorf("Error returned when calling ToObject with activity should be nil, received %s", err)
-	}
-	if IsNil(a) {
-		t.Errorf("Invalid return by ToObject #%v, should have not been nil", a)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			arg := tt.arg.(Item)
+			got, err := ToObject(arg)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ToObject() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !ItemsEqual(tt.want, got) {
+				t.Errorf("ToObject() got = %v, expected %v", got, tt.want)
+			}
+		})
 	}
 }
 
@@ -517,10 +578,6 @@ func TestRelationship_Recipients(t *testing.T) {
 }
 
 func TestTombstone_Recipients(t *testing.T) {
-	t.Skipf("TODO")
-}
-
-func TestItemCollectionDeduplication(t *testing.T) {
 	t.Skipf("TODO")
 }
 
@@ -846,7 +903,7 @@ func TestObject_MarshalJSON(t *testing.T) {
 				t.Errorf("MarshalJSON() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
+			if !bytes.Equal(got, tt.want) {
 				t.Errorf("MarshalJSON() got = %s, want %s", got, tt.want)
 			}
 		})
@@ -1164,6 +1221,46 @@ func TestObject_GobEncode(t *testing.T) {
 			}
 			if !ItemsEqual(ob, o) {
 				t.Errorf("GobEncode() got/want =\n%#v\n%#v\n", ob, o)
+			}
+		})
+	}
+}
+
+type reflectTest[T Objects | Links] struct {
+	name    string
+	arg     any
+	want    *T
+	wantErr bool
+}
+
+func Test_reflectedItemByType_Object(t *testing.T) {
+	tests := []reflectTest[Object]{
+		{
+			name: "empty object",
+			arg:  &Object{},
+			want: &Object{},
+		},
+		{
+			name: "object with ID",
+			arg:  &Object{ID: "https://example.com"},
+			want: &Object{ID: "https://example.com"},
+		},
+		{
+			name: "object with ID, type",
+			arg:  &Object{ID: "https://example.com", Type: ArticleType},
+			want: &Object{ID: "https://example.com", Type: ArticleType},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			arg := tt.arg.(Item)
+			got, err := reflectItemToType[Object](arg)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("reflectItemToType() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !ItemsEqual(tt.want, got) {
+				t.Errorf("reflectItemToType() got = %v, expected %v", got, tt.want)
 			}
 		})
 	}

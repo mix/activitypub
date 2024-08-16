@@ -1,6 +1,9 @@
 package activitypub
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestItemCollection_Append(t *testing.T) {
 	t.Skipf("TODO")
@@ -143,6 +146,224 @@ func TestItemCollection_Remove(t *testing.T) {
 				if tt.i.Count() != origLen {
 					t.Errorf("%T should have a count equal to %d, got %d", tt.i, origLen, tt.i.Count())
 				}
+			}
+		})
+	}
+}
+
+func TestItemCollectionDeduplication(t *testing.T) {
+	tests := []struct {
+		name      string
+		args      []*ItemCollection
+		want      ItemCollection
+		remaining []*ItemCollection
+	}{
+		{
+			name: "empty",
+		},
+		{
+			name: "no-overlap",
+			args: []*ItemCollection{
+				{
+					IRI("https://example.com"),
+					IRI("https://example.com/2"),
+				},
+				{
+					IRI("https://example.com/1"),
+				},
+			},
+			want: ItemCollection{
+				IRI("https://example.com"),
+				IRI("https://example.com/2"),
+				IRI("https://example.com/1"),
+			},
+			remaining: []*ItemCollection{
+				{
+					IRI("https://example.com"),
+					IRI("https://example.com/2"),
+				},
+				{
+					IRI("https://example.com/1"),
+				},
+			},
+		},
+		{
+			name: "some-overlap",
+			args: []*ItemCollection{
+				{
+					IRI("https://example.com"),
+					IRI("https://example.com/2"),
+				},
+				{
+					IRI("https://example.com/1"),
+					IRI("https://example.com/2"),
+				},
+			},
+			want: ItemCollection{
+				IRI("https://example.com"),
+				IRI("https://example.com/2"),
+				IRI("https://example.com/1"),
+			},
+			remaining: []*ItemCollection{
+				{
+					IRI("https://example.com"),
+					IRI("https://example.com/2"),
+				},
+				{
+					IRI("https://example.com/1"),
+				},
+			},
+		},
+		{
+			name: "test from spammy",
+			args: []*ItemCollection{
+				{
+					IRI("https://example.dev/a801139a-0d9a-4703-b0a5-9d14ae1438e4/followers"),
+					IRI("https://www.w3.org/ns/activitystreams#Public"),
+				},
+				{
+					IRI("https://example.dev/a801139a-0d9a-4703-b0a5-9d14ae1438e4"),
+				},
+				{
+					IRI("https://example.dev"),
+					IRI("https://example.dev/a801139a-0d9a-4703-b0a5-9d14ae1438e4"),
+					IRI("https://www.w3.org/ns/activitystreams#Public"),
+				},
+			},
+			want: ItemCollection{
+				IRI("https://example.dev/a801139a-0d9a-4703-b0a5-9d14ae1438e4/followers"),
+				IRI("https://www.w3.org/ns/activitystreams#Public"),
+				IRI("https://example.dev/a801139a-0d9a-4703-b0a5-9d14ae1438e4"),
+				IRI("https://example.dev"),
+			},
+			remaining: []*ItemCollection{
+				{
+					IRI("https://example.dev/a801139a-0d9a-4703-b0a5-9d14ae1438e4/followers"),
+					IRI("https://www.w3.org/ns/activitystreams#Public"),
+				},
+				{
+					IRI("https://example.dev/a801139a-0d9a-4703-b0a5-9d14ae1438e4"),
+				},
+				{
+					IRI("https://example.dev"),
+				},
+			},
+		},
+		{
+			name: "different order for spammy test",
+			args: []*ItemCollection{
+				{
+					IRI("https://example.dev/a801139a-0d9a-4703-b0a5-9d14ae1438e4/followers"),
+					IRI("https://www.w3.org/ns/activitystreams#Public"),
+				},
+				{
+					IRI("https://example.dev"),
+					IRI("https://example.dev/a801139a-0d9a-4703-b0a5-9d14ae1438e4"),
+					IRI("https://www.w3.org/ns/activitystreams#Public"),
+				},
+				{
+					IRI("https://example.dev/a801139a-0d9a-4703-b0a5-9d14ae1438e4"),
+				},
+			},
+			want: ItemCollection{
+				IRI("https://example.dev/a801139a-0d9a-4703-b0a5-9d14ae1438e4/followers"),
+				IRI("https://www.w3.org/ns/activitystreams#Public"),
+				IRI("https://example.dev/a801139a-0d9a-4703-b0a5-9d14ae1438e4"),
+				IRI("https://example.dev"),
+			},
+			remaining: []*ItemCollection{
+				{
+					IRI("https://example.dev/a801139a-0d9a-4703-b0a5-9d14ae1438e4/followers"),
+					IRI("https://www.w3.org/ns/activitystreams#Public"),
+				},
+				{
+					IRI("https://example.dev"),
+					IRI("https://example.dev/a801139a-0d9a-4703-b0a5-9d14ae1438e4"),
+				},
+				{},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ItemCollectionDeduplication(tt.args...); !tt.want.Equals(got) {
+				t.Errorf("ItemCollectionDeduplication() = %v, want %v", got, tt.want)
+			}
+			if len(tt.remaining) != len(tt.args) {
+				t.Errorf("ItemCollectionDeduplication() arguments count %d, want %d", len(tt.args), len(tt.remaining))
+			}
+			for i, remArg := range tt.remaining {
+				arg := tt.args[i]
+				if !remArg.Equals(arg) {
+					t.Errorf("ItemCollectionDeduplication() argument at pos %d = %v, want %v", i, arg, remArg)
+				}
+			}
+		})
+	}
+}
+
+func TestToItemCollection1(t *testing.T) {
+	tests := []struct {
+		name    string
+		it      Item
+		want    *ItemCollection
+		wantErr bool
+	}{
+		{
+			name: "empty",
+		},
+		{
+			name:    "IRIs to ItemCollection",
+			it:      IRIs{"https://example.com", "https://example.com/example"},
+			want:    &ItemCollection{IRI("https://example.com"), IRI("https://example.com/example")},
+			wantErr: false,
+		},
+		{
+			name:    "ItemCollection to ItemCollection",
+			it:      ItemCollection{IRI("https://example.com"), IRI("https://example.com/example")},
+			want:    &ItemCollection{IRI("https://example.com"), IRI("https://example.com/example")},
+			wantErr: false,
+		},
+		{
+			name:    "*ItemCollection to ItemCollection",
+			it:      &ItemCollection{IRI("https://example.com"), IRI("https://example.com/example")},
+			want:    &ItemCollection{IRI("https://example.com"), IRI("https://example.com/example")},
+			wantErr: false,
+		},
+		{
+			name:    "Collection to ItemCollection",
+			it:      &Collection{Items: ItemCollection{IRI("https://example.com"), IRI("https://example.com/example")}},
+			want:    &ItemCollection{IRI("https://example.com"), IRI("https://example.com/example")},
+			wantErr: false,
+		},
+		{
+			name:    "CollectionPage to ItemCollection",
+			it:      &CollectionPage{Items: ItemCollection{IRI("https://example.com"), IRI("https://example.com/example")}},
+			want:    &ItemCollection{IRI("https://example.com"), IRI("https://example.com/example")},
+			wantErr: false,
+		},
+		{
+			name:    "OrderedCollection to ItemCollection",
+			it:      &OrderedCollection{OrderedItems: ItemCollection{IRI("https://example.com"), IRI("https://example.com/example")}},
+			want:    &ItemCollection{IRI("https://example.com"), IRI("https://example.com/example")},
+			wantErr: false,
+		},
+		{
+			name:    "OrderedCollectionPage to ItemOrderedCollection",
+			it:      &OrderedCollectionPage{OrderedItems: ItemCollection{IRI("https://example.com"), IRI("https://example.com/example")}},
+			want:    &ItemCollection{IRI("https://example.com"), IRI("https://example.com/example")},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ToItemCollection(tt.it)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ToItemCollection() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ToItemCollection() got = %v, want %v", got, tt.want)
 			}
 		})
 	}

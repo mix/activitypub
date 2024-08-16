@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"reflect"
 	"time"
 	"unsafe"
 
@@ -220,13 +219,16 @@ func (t *Tombstone) GobDecode(data []byte) error {
 
 // Recipients performs recipient de-duplication on the Tombstone object's To, Bto, CC and BCC properties
 func (t *Tombstone) Recipients() ItemCollection {
-	return ItemCollectionDeduplication(&t.To, &t.Bto, &t.CC, &t.BCC, &t.Audience)
+	aud := t.Audience
+	return ItemCollectionDeduplication(&t.To, &t.CC, &t.Bto, &t.BCC, &aud)
 }
 
 // Clean removes Bto and BCC properties
 func (t *Tombstone) Clean() {
-	t.BCC = nil
-	t.Bto = nil
+	_ = OnObject(t, func(o *Object) error {
+		o.Clean()
+		return nil
+	})
 }
 
 func (t Tombstone) Format(s fmt.State, verb rune) {
@@ -248,15 +250,8 @@ func ToTombstone(it Item) (*Tombstone, error) {
 	case Object:
 		return (*Tombstone)(unsafe.Pointer(&i)), nil
 	default:
-		// NOTE(marius): this is an ugly way of dealing with the interface conversion error: types from different scopes
-		typ := reflect.TypeOf(new(Tombstone))
-		if reflect.TypeOf(it).ConvertibleTo(typ) {
-			if i, ok := reflect.ValueOf(it).Convert(typ).Interface().(*Tombstone); ok {
-				return i, nil
-			}
-		}
+		return reflectItemToType[Tombstone](it)
 	}
-	return nil, ErrorInvalidType[Tombstone](it)
 }
 
 type withTombstoneFn func(*Tombstone) error

@@ -1,7 +1,6 @@
 package activitypub
 
 import (
-	"reflect"
 	"sort"
 )
 
@@ -175,7 +174,9 @@ func ItemCollectionDeduplication(recCols ...*ItemCollection) ItemCollection {
 	return rec
 }
 
-// ToItemCollection
+// ToItemCollection returns the item collection contained as part of OrderedCollection, OrderedCollectionPage,
+// Collection and CollectionPage.
+// It also converts an IRI slice into an equivalent ItemCollection.
 func ToItemCollection(it Item) (*ItemCollection, error) {
 	switch i := it.(type) {
 	case *ItemCollection:
@@ -190,14 +191,20 @@ func ToItemCollection(it Item) (*ItemCollection, error) {
 		return &i.Items, nil
 	case *CollectionPage:
 		return &i.Items, nil
-	default:
-		// NOTE(marius): this is an ugly way of dealing with the interface conversion error: types from different scopes
-		typ := reflect.TypeOf(new(ItemCollection))
-		if reflect.TypeOf(it).ConvertibleTo(typ) {
-			if i, ok := reflect.ValueOf(it).Convert(typ).Interface().(*ItemCollection); ok {
-				return i, nil
-			}
+	case IRIs:
+		iris := make(ItemCollection, len(i))
+		for j, ob := range i {
+			iris[j] = ob
 		}
+		return &iris, nil
+	case *IRIs:
+		iris := make(ItemCollection, len(*i))
+		for j, ob := range *i {
+			iris[j] = ob
+		}
+		return &iris, nil
+	default:
+		return reflectItemToType[ItemCollection](it)
 	}
 	return nil, ErrorInvalidType[ItemCollection](it)
 }
@@ -222,13 +229,7 @@ func ToIRIs(it Item) (*IRIs, error) {
 		}
 		return &iris, nil
 	default:
-		// NOTE(marius): this is an ugly way of dealing with the interface conversion error: types from different scopes
-		typ := reflect.TypeOf(new(IRIs))
-		if reflect.TypeOf(it).ConvertibleTo(typ) {
-			if i, ok := reflect.ValueOf(it).Convert(typ).Interface().(*IRIs); ok {
-				return i, nil
-			}
-		}
+		return reflectItemToType[IRIs](it)
 	}
 	return nil, ErrorInvalidType[IRIs](it)
 }
@@ -269,4 +270,23 @@ func (i ItemCollection) Equals(with Item) bool {
 		return nil
 	})
 	return result
+}
+
+// Clean removes Bto and BCC properties on all the members of the collection
+func (i ItemCollection) Clean() {
+	for j, it := range i {
+		i[j] = CleanRecipients(it)
+	}
+}
+
+func (i ItemCollection) Recipients() ItemCollection {
+	all := make(ItemCollection, 0)
+	for _, it := range i {
+		_ = OnObject(it, func(ob *Object) error {
+			aud := ob.Audience
+			_ = all.Append(ItemCollectionDeduplication(&ob.To, &ob.CC, &ob.Bto, &ob.BCC, &aud)...)
+			return nil
+		})
+	}
+	return ItemCollectionDeduplication(&all)
 }

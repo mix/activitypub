@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/valyala/fastjson"
@@ -241,13 +240,16 @@ func (p *Place) GobDecode(data []byte) error {
 
 // Recipients performs recipient de-duplication on the Place object's To, Bto, CC and BCC properties
 func (p *Place) Recipients() ItemCollection {
-	return ItemCollectionDeduplication(&p.To, &p.Bto, &p.CC, &p.BCC, &p.Audience)
+	aud := p.Audience
+	return ItemCollectionDeduplication(&p.To, &p.CC, &p.Bto, &p.BCC, &aud)
 }
 
 // Clean removes Bto and BCC properties
 func (p *Place) Clean() {
-	p.BCC = nil
-	p.Bto = nil
+	_ = OnObject(p, func(o *Object) error {
+		o.Clean()
+		return nil
+	})
 }
 
 func (p Place) Format(s fmt.State, verb rune) {
@@ -265,15 +267,8 @@ func ToPlace(it Item) (*Place, error) {
 	case Place:
 		return &i, nil
 	default:
-		// NOTE(marius): this is an ugly way of dealing with the interface conversion error: types from different scopes
-		typ := reflect.TypeOf(new(Place))
-		if reflect.TypeOf(it).ConvertibleTo(typ) {
-			if i, ok := reflect.ValueOf(it).Convert(typ).Interface().(*Place); ok {
-				return i, nil
-			}
-		}
+		return reflectItemToType[Place](it)
 	}
-	return nil, ErrorInvalidType[Place](it)
 }
 
 type withPlaceFn func(*Place) error

@@ -521,14 +521,23 @@ func (o Object) Format(s fmt.State, verb rune) {
 
 // Recipients performs recipient de-duplication on the Object's To, Bto, CC and BCC properties
 func (o *Object) Recipients() ItemCollection {
-	var aud ItemCollection
-	return ItemCollectionDeduplication(&aud, &o.To, &o.Bto, &o.CC, &o.BCC, &o.Audience)
+	aud := o.Audience
+	return ItemCollectionDeduplication(&o.To, &o.CC, &o.Bto, &o.BCC, &aud)
 }
 
 // Clean removes Bto and BCC properties
 func (o *Object) Clean() {
-	o.BCC = nil
-	o.Bto = nil
+	o.BCC = o.BCC[:0]
+	o.Bto = o.Bto[:0]
+	CleanRecipients(o.Audience)
+	CleanRecipients(o.Attachment)
+	CleanRecipients(o.Icon)
+	CleanRecipients(o.Image)
+	CleanRecipients(o.Context)
+	CleanRecipients(o.Generator)
+	CleanRecipients(o.AttributedTo)
+	CleanRecipients(o.Preview)
+	CleanRecipients(o.Tag)
 }
 
 type (
@@ -671,18 +680,27 @@ func ToObject(it Item) (*Object, error) {
 	case OrderedCollectionPage:
 		return (*Object)(unsafe.Pointer(&i)), nil
 	default:
-		// NOTE(marius): this is an ugly way of dealing with the interface conversion error: types from different scopes
-		typ := reflect.TypeOf(new(Object))
-		if reflect.TypeOf(it).ConvertibleTo(typ) {
-			if reflect.ValueOf(it).IsNil() {
-				return nil, nil
-			}
-			if i, ok := reflect.ValueOf(it).Convert(typ).Interface().(*Object); ok {
-				return i, nil
-			}
-		}
+		return reflectItemToType[Object](it)
 	}
-	return nil, ErrorInvalidType[Object](it)
+}
+
+func reflectItemToType[T Objects | Links](it Item) (*T, error) {
+	if IsNil(it) {
+		return nil, nil
+	}
+	tTyp := reflect.TypeFor[*T]()
+	if !reflect.TypeOf(it).ConvertibleTo(tTyp) {
+		return nil, ErrorInvalidType[T](it)
+	}
+
+	iVal := reflect.ValueOf(it)
+	if !iVal.IsValid() {
+		return nil, ErrorInvalidType[T](it)
+	}
+	if i, ok := iVal.Convert(tTyp).Interface().(*T); ok {
+		return i, nil
+	}
+	return nil, ErrorInvalidType[T](it)
 }
 
 // Source is intended to convey some sort of source from which the content markup was derived,
@@ -807,7 +825,7 @@ func (s Source) GobEncode() ([]byte, error) {
 
 // Equals verifies if our receiver Object is equals with the "with" Object
 func (o Object) Equals(with Item) bool {
-	if with.IsCollection() {
+	if IsItemCollection(with) {
 		return false
 	}
 	if withID := with.GetID(); !o.ID.Equals(withID, true) {

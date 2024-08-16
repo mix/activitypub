@@ -455,37 +455,33 @@ func (a *Activity) Recipients() ItemCollection {
 	if a.GetType() == BlockType && a.Object != nil {
 		alwaysRemove = append(alwaysRemove, a.Object)
 	}
-	if a.Actor != nil {
-		alwaysRemove = append(alwaysRemove, a.Actor)
-	}
 	if len(alwaysRemove) > 0 {
 		_ = removeFromAudience(a, alwaysRemove...)
 	}
-	return ItemCollectionDeduplication(&a.To, &a.Bto, &a.CC, &a.BCC, &a.Audience)
+	aud := a.Audience
+	return ItemCollectionDeduplication(&a.To, &a.CC, &a.Bto, &a.BCC, &aud)
+}
+
+// CleanRecipients checks if the "it" Item has recipients and cleans them if it does
+func CleanRecipients(it Item) Item {
+	if IsNil(it) {
+		return nil
+	}
+	if s, ok := it.(HasRecipients); ok {
+		s.Clean()
+	}
+	return it
 }
 
 // Clean removes Bto and BCC properties
 func (a *Activity) Clean() {
-	a.BCC = nil
-	a.Bto = nil
-	if a.Object != nil && a.Object.IsObject() {
-		_ = OnObject(a.Object, func(o *Object) error {
-			o.Clean()
-			return nil
-		})
-	}
-	if a.Actor != nil && a.Actor.IsObject() {
-		_ = OnObject(a.Actor, func(o *Object) error {
-			o.Clean()
-			return nil
-		})
-	}
-	if a.Target != nil && a.Target.IsObject() {
-		_ = OnObject(a.Target, func(o *Object) error {
-			o.Clean()
-			return nil
-		})
-	}
+	_ = OnObject(a, func(o *Object) error {
+		o.Clean()
+		return nil
+	})
+	CleanRecipients(a.Object)
+	CleanRecipients(a.Actor)
+	CleanRecipients(a.Target)
 }
 
 type (
@@ -933,7 +929,7 @@ func (a *Activity) GobDecode(data []byte) error {
 func (a Activity) Equals(with Item) bool {
 	result := true
 	err := OnActivity(with, func(w *Activity) error {
-		OnIntransitiveActivity(a, func(oi *IntransitiveActivity) error {
+		_ = OnIntransitiveActivity(a, func(oi *IntransitiveActivity) error {
 			result = oi.Equals(w)
 			return nil
 		})

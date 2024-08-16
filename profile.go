@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/valyala/fastjson"
@@ -213,13 +212,16 @@ func (p *Profile) GobDecode(data []byte) error {
 
 // Recipients performs recipient de-duplication on the Profile object's To, Bto, CC and BCC properties
 func (p *Profile) Recipients() ItemCollection {
-	return ItemCollectionDeduplication(&p.To, &p.Bto, &p.CC, &p.BCC, &p.Audience)
+	aud := p.Audience
+	return ItemCollectionDeduplication(&p.To, &p.CC, &p.Bto, &p.BCC, &aud)
 }
 
 // Clean removes Bto and BCC properties
 func (p *Profile) Clean() {
-	p.BCC = nil
-	p.Bto = nil
+	_ = OnObject(p, func(o *Object) error {
+		o.Clean()
+		return nil
+	})
 }
 
 func (p Profile) Format(s fmt.State, verb rune) {
@@ -229,7 +231,7 @@ func (p Profile) Format(s fmt.State, verb rune) {
 	}
 }
 
-// ToProfile tries to convert the it Item to a Profile object
+// ToProfile tries to convert the "it" Item to a Profile object
 func ToProfile(it Item) (*Profile, error) {
 	switch i := it.(type) {
 	case *Profile:
@@ -237,15 +239,8 @@ func ToProfile(it Item) (*Profile, error) {
 	case Profile:
 		return &i, nil
 	default:
-		// NOTE(marius): this is an ugly way of dealing with the interface conversion error: types from different scopes
-		typ := reflect.TypeOf(new(Profile))
-		if reflect.TypeOf(it).ConvertibleTo(typ) {
-			if i, ok := reflect.ValueOf(it).Convert(typ).Interface().(*Profile); ok {
-				return i, nil
-			}
-		}
+		return reflectItemToType[Profile](it)
 	}
-	return nil, ErrorInvalidType[Profile](it)
 }
 
 type withProfileFn func(*Profile) error
