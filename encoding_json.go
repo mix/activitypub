@@ -294,6 +294,9 @@ func JSONWriteObjectValue(b *[]byte, o Object) (notEmpty bool) {
 	if o.Width > 0 {
 		notEmpty = JSONWriteIntProp(b, "width", int64(o.Width))
 	}
+	if o.Sensitive {
+		notEmpty = JSONWriteBoolProp(b, "sensitive", o.Sensitive)
+	}
 	return notEmpty
 }
 
