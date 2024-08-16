@@ -245,6 +245,7 @@ type Object struct {
 	Height    uint `jsonld:"height,omitempty"`
 	Width     uint `jsonld:"width,omitempty"`
 	Sensitive bool `jsonld:"sensitive,omitempty"`
+	// Any additional fields must be also added to Actor
 }
 
 // ObjectNew initializes a new Object

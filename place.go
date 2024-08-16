@@ -102,7 +102,10 @@ type Place struct {
 	// Source property is intended to convey some sort of source from which the content markup was derived,
 	// as a form of provenance, or to support future editing by clients.
 	// In general, clients do the conversion from source to content, not the other way around.
-	Source Source `jsonld:"source,omitempty"`
+	Source    Source `jsonld:"source,omitempty"`
+	Height    uint   `jsonld:"height,omitempty"`
+	Width     uint   `jsonld:"width,omitempty"`
+	Sensitive bool   `jsonld:"sensitive,omitempty"`
 	// Accuracy indicates the accuracy of position coordinates on a Place objects.
 	// Expressed in properties of percentage. e.g. "94.0" means "94.0% accurate".
 	Accuracy float64 `jsonld:"accuracy,omitempty"`

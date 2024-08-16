@@ -106,7 +106,10 @@ type Question struct {
 	// Source property is intended to convey some sort of source from which the content markup was derived,
 	// as a form of provenance, or to support future editing by clients.
 	// In general, clients do the conversion from source to content, not the other way around.
-	Source Source `jsonld:"source,omitempty"`
+	Source    Source `jsonld:"source,omitempty"`
+	Height    uint   `jsonld:"height,omitempty"`
+	Width     uint   `jsonld:"width,omitempty"`
+	Sensitive bool   `jsonld:"sensitive,omitempty"`
 	// CanReceiveActivities describes one or more entities that either performed or are expected to perform the activity.
 	// Any single activity can have multiple actors. The actor may be specified using an indirect Link.
 	Actor CanReceiveActivities `jsonld:"actor,omitempty"`

@@ -134,7 +134,10 @@ type Actor struct {
 	// Source property is intended to convey some sort of source from which the content markup was derived,
 	// as a form of provenance, or to support future editing by clients.
 	// In general, clients do the conversion from source to content, not the other way around.
-	Source Source `jsonld:"source,omitempty"`
+	Source    Source `jsonld:"source,omitempty"`
+	Height    uint   `jsonld:"height,omitempty"`
+	Width     uint   `jsonld:"width,omitempty"`
+	Sensitive bool   `jsonld:"sensitive,omitempty"`
 	// A reference to an [ActivityStreams] OrderedCollection comprised of all the messages received by the actor;
 	// see 5.2 Inbox.
 	Inbox Item `jsonld:"inbox,omitempty"`
