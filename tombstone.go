@@ -106,7 +106,10 @@ type Tombstone struct {
 	// Source property is intended to convey some sort of source from which the content markup was derived,
 	// as a form of provenance, or to support future editing by clients.
 	// In general, clients do the conversion from source to content, not the other way around.
-	Source Source `jsonld:"source,omitempty"`
+	Source    Source `jsonld:"source,omitempty"`
+	Height    uint   `jsonld:"height,omitempty"`
+	Width     uint   `jsonld:"width,omitempty"`
+	Sensitive bool   `jsonld:"sensitive,omitempty"`
 	// FormerType On a Tombstone object, the formerType property identifies the type of the object that was deleted.
 	FormerType ActivityVocabularyType `jsonld:"formerType,omitempty"`
 	// Deleted On a Tombstone object, the deleted property is a timestamp for when the object was deleted.
